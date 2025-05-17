@@ -524,19 +524,38 @@ export default function Home() {
   };
 
   const handleFileChange2 = (e) => {
-    const file = e.target.files[0];
-    if (!file || selectedIndex === null) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const newImages = [...images];
-      newImages[selectedIndex] = reader.result;
-      setImages(newImages);
-      setSelectedIndex(null); // reset
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(e.target.files);
+    setImages((prevImages) => {
+      const updated = [...prevImages];
+      let i = 0;
+      for (let j = 0; j < updated.length && i < files.length; j++) {
+        if (!updated[j]) {
+          updated[j] = URL.createObjectURL(files[i]);
+          i++;
+        }
+      }
+      return updated;
+    });
   };
+  const [dragIndex, setDragIndex] = useState(null);
 
+  const handleDragStart = (index) => {
+    setDragIndex(index);
+  };
+  
+  const handleDrop = (index) => {
+    if (dragIndex === null || dragIndex === index) return;
+  
+    setImages((prev) => {
+      const newImages = [...prev];
+      [newImages[dragIndex], newImages[index]] = [newImages[index], newImages[dragIndex]];
+      return newImages;
+    });
+  
+    setDragIndex(null);
+  };
+  
+  const handleDragOver = (e) => e.preventDefault();  
   const handleRemoveImage = (index) => {
     const newImages = [...images];
     newImages[index] = null;
@@ -1847,12 +1866,12 @@ export default function Home() {
 
               {/* Hidden file input */}
               <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                data-index=""
-                style={{ display: "none" }}
-                onChange={handleFileChange2}
+                 type="file"
+                 accept="image/*"
+                 multiple
+                 ref={fileInputRef}
+                 style={{ display: "none" }}
+                 onChange={handleFileChange2}
               />
 
               {/* Image upload grid */}
@@ -1876,6 +1895,10 @@ export default function Home() {
                     <div
                       key={index}
                       style={{ width: "100.5px", position: "relative" }}
+                      draggable={isUploaded}
+  onDragStart={() => handleDragStart(index)}
+  onDrop={() => handleDrop(index)}
+  onDragOver={handleDragOver}
                     >
                       <button
                         type="button"
@@ -1897,6 +1920,7 @@ export default function Home() {
                           position: "relative",
                           padding: 0,
                         }}
+                       
                         onClick={() => handleImageSelect(index)}
                       >
                         {isUploaded ? (
