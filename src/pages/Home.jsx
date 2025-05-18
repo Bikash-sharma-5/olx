@@ -449,8 +449,11 @@
 //   }
 import React, { useState, useRef } from "react";
 
+
 export default function Home() {
   const [title, setTitle] = useState("");
+  const MAX_FILES = 20;
+
   // Create a state object for storing form data
   const [formData, setFormData] = useState({
     category: "For Rent: Houses & Apartments",
@@ -512,7 +515,7 @@ export default function Home() {
     // Do something with formData (e.g., send it to an API)
     console.log(formData);
   };
-
+ 
   const fileInputRef = useRef(null);
   const [images, setImages] = useState(Array(20).fill(null));
 
@@ -523,20 +526,65 @@ export default function Home() {
     }));
   };
 
-  const handleFileChange2 = (e) => {
-    const files = Array.from(e.target.files);
-    setImages((prevImages) => {
-      const updated = [...prevImages];
-      let i = 0;
-      for (let j = 0; j < updated.length && i < files.length; j++) {
-        if (!updated[j]) {
-          updated[j] = URL.createObjectURL(files[i]);
-          i++;
+  // const handleFileChange2 = (e) => {
+  //   const files = Array.from(e.target.files);
+  //   setImages((prevImages) => {
+  //     const updated = [...prevImages];
+  //     let i = 0;
+  //     for (let j = 0; j < updated.length && i < files.length; j++) {
+  //       if (!updated[j]) {
+  //         updated[j] = URL.createObjectURL(files[i]);
+  //         i++;
+  //       }
+  //     }
+  //     return updated;
+  //   });
+  // };
+  const MAX_IMAGES = 20;
+const MAX_FILE_SIZE_MB = 5;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+const ASPECT_RATIO = 21 / 9;
+const ASPECT_TOLERANCE = 0.05; // Allow slight variation (±5%)
+const [imageErrors, setImageErrors] = useState(Array(20).fill(false));
+
+const handleFileChange2 = (e) => {
+  const files = Array.from(e.target.files);
+  const maxImages = 20;
+
+  const updatedImages = [...images];
+  const newErrors = [...imageErrors];
+
+  let added = 0;
+
+  files.forEach((file) => {
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const img = new Image();
+
+      img.onload = () => {
+        const ratio = img.width / img.height;
+
+        const nextIndex = updatedImages.findIndex((img) => img === null);
+
+        if (nextIndex !== -1 && added < maxImages) {
+          updatedImages[nextIndex] = event.target.result;
+          newErrors[nextIndex] = ratio > 21 / 9; // true if aspect ratio is too wide
+          added++;
         }
-      }
-      return updated;
-    });
-  };
+
+        setImages([...updatedImages]);
+        setImageErrors([...newErrors]);
+      };
+      e.target.value = ""; 
+      img.src = event.target.result;
+    };
+
+    reader.readAsDataURL(file);
+  });
+};
+const firstValidImageIndex = imageErrors.findIndex((err, idx) => !err && images[idx]);
+
   const [dragIndex, setDragIndex] = useState(null);
 
   const handleDragStart = (index) => {
@@ -552,8 +600,15 @@ export default function Home() {
       return newImages;
     });
   
+    setImageErrors((prev) => {
+      const newErrors = [...prev];
+      [newErrors[dragIndex], newErrors[index]] = [newErrors[index], newErrors[dragIndex]];
+      return newErrors;
+    });
+  
     setDragIndex(null);
   };
+  
   
   const handleDragOver = (e) => e.preventDefault();  
   const handleRemoveImage = (index) => {
@@ -606,6 +661,8 @@ export default function Home() {
     }
   };
   const [isFocused, setIsFocused] = useState(false);
+  
+
 
   const [isProjectsFocused, setIsProjectsFocused] = useState(false);
   const [isProjectsTouched, setIsProjectsTouched] = useState(false);
@@ -634,6 +691,7 @@ export default function Home() {
   const showPhoneError = isPhoneTouched && !isPhoneValid;
   const showPhoneSuccess = isPhoneValid;
 
+  
   return (
     <main
       id="main_content"
@@ -1640,6 +1698,7 @@ export default function Home() {
   <textarea
     id="description"
     name="description"
+    
     maxLength="4096"
     value={formData.description || ""}
     onChange={(e) =>
@@ -1655,6 +1714,7 @@ export default function Home() {
       height: "96px",
       padding: "10px",
       fontSize: "14px",
+      resize: "none",
       border:
         descriptionTouched2 && formData.description.trim().length < 10
           ? "2px solid red"
@@ -1936,25 +1996,27 @@ export default function Home() {
                             />
                             {/* Overlay */}
                             <div
-                              style={{
-                                position: "absolute",
-                                bottom: "8px",
-                                left: "8px",
-                                right: "8px",
-                                height: "30%",
-                                backgroundColor: "#0078FA",
-                                color: "black",
-                                fontSize: "12px",
-                                fontWeight: "700",
-                                display: "flex",
-                                justifyContent: "center", // horizontal center
-                                alignItems: "center", // vertical center
-                                zIndex: 1,
-                                // optional: rounded corners
-                              }}
-                            >
-                              COVER
-                            </div>
+  style={{
+    position: "absolute",
+    bottom: "8px",
+    left: "8px",
+    right: "8px",
+    height: "30%",
+    backgroundColor: imageErrors[index] ? "red" : "#0078FA",
+    color: "white",
+    fontSize: "12px",
+    fontWeight: "700",
+    opacity: index !== firstValidImageIndex&&!imageErrors[index]? "0":"1",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  }}
+>
+  {imageErrors[index] ? "ERROR" : index === firstValidImageIndex ? "COVER" : ""}
+</div>
+
+
 
                             {/* Close icon */}
                             <div
@@ -2018,6 +2080,36 @@ export default function Home() {
                     </div>
                   );
                 })}
+                {/* Error Box at the bottom if there's at least one invalid image */}
+{imageErrors.some((error) => error) && (
+  <div
+    style={{
+      marginTop: "10px",
+      backgroundColor: "rgba(255, 40, 0, .2)",
+      border: "1px solid #ff2800",
+      padding: "10px 12px",
+      borderRadius: "5px",
+      color: "#cc0000",
+      fontSize: "16px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "416.5px",
+      
+    font:"16px",
+    padding: "0px 16px 0px 24px",
+   
+    lineHeight: "2",
+    marginTop: "8px",
+   
+      height:"56px",
+    }}
+  >
+    <span style={{color:"#ff2800",   }}>Invalid image ratio. Max allowed: 21:9</span>
+    <svg width="24px" height="24px" viewBox="0 0 1024 1024" data-aut-id="icon" class="" fill-rule="evenodd"><path class="rui-8kcgO" d="M512 85.333c235.264 0 426.667 191.403 426.667 426.667s-191.403 426.667-426.667 426.667c-235.264 0-426.667-191.403-426.667-426.667s191.403-426.667 426.667-426.667zM512 170.667c-188.203 0-341.333 153.131-341.333 341.333s153.131 341.333 341.333 341.333c188.203 0 341.333-153.131 341.333-341.333s-153.131-341.333-341.333-341.333zM512 640c23.552 0 42.667 19.115 42.667 42.667s-19.115 42.667-42.667 42.667c-23.552 0-42.667-19.115-42.667-42.667s19.115-42.667 42.667-42.667zM512 298.667l42.667 42.667v213.333l-42.667 42.667-42.667-42.667v-213.333l42.667-42.667z"></path></svg>
+  </div>
+)}
+
               </div>
 
               {/* Invisible backup file input */}
@@ -2034,12 +2126,14 @@ export default function Home() {
                 }}
               />
 
-              <p
-                className="_35LX-"
-                style={{ color: "red", fontSize: "14px", marginTop: "10px" }}
-              >
-                <span>This field is mandatory</span>
-              </p>
+{images.every((img) => !img) && (
+  <p
+    className="_35LX-"
+    style={{ color: "red", fontSize: "14px", marginTop: "10px" }}
+  >
+    <span>This field is mandatory</span>
+  </p>
+)}
 
               <hr
                 style={{
